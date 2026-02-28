@@ -27,6 +27,7 @@ export async function signUp(params: SignUpParams) {
             message: 'Account created successfully. Please sign in.'
         }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
         console.error('Error creating a user', e);
 
@@ -118,4 +119,34 @@ export async function isAuthenticated() {
     const user = await getCurrentuser();
 
     return !!user;
+}
+
+export async function getInterviewByUserId( userId: string): Promise<Interview[] | null> {
+    const interviews = await db
+        .collection('interviews')
+        .where('userID', '==', userId)
+        .get();
+
+    console.log("User interviews:", interviews.docs.map(d => d.data()));
+
+    return interviews.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+    })) as Interview[];
+}
+
+export async function getLatestInterview( params: GetLatestInterviewsParams): Promise<Interview[] | null> {
+    const { userId, limit = 20 } = params;
+
+    const interviews = await db
+        .collection('interviews')
+        .where('finalized', '==', true)
+        .where('userID', '!=', userId)
+        .limit(limit)
+        .get();
+
+    return interviews.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+    })) as Interview[];
 }
