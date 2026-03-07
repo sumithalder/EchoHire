@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button'
 import Link from "next/link";
 import Image from 'next/image'
 import InterviewCard from '@/components/InterviewCard';
-import {getCurrentuser, getInterviewByUserId, getLatestInterview} from "@/lib/actions/auth.action";
+import { getCurrentuser } from "@/lib/actions/auth.action";
+import { getInterviewByUserId, getLatestInterview} from "@/lib/actions/general.action";
 
 const Page = async() => {
   const user = await getCurrentuser();
-  console.log("Current user:", user);
 
   const [userInterviews, latestInterviews] = await Promise.all([
     await getInterviewByUserId(user?.id!),
@@ -21,16 +21,16 @@ const Page = async() => {
     <>
       <section className="card-cta">
         <div className="flex flex-col gap-6 max-w-lg">
-          <h2>Get Interview-Ready with AI-Powered Practice & Feedback</h2>
+          <h2>Sharpen your skills for interviews with AI-powered agent.</h2>
           <p className="text-lg">
-            Practice on real interview questions & get instant feedback
+            Try mock interviews and receive instant AI feedback.
           </p>
           <Button asChild className="btn btn-primary max-sm:w-full">
             <Link href="/interview">Start an Interview</Link>
           </Button>
         </div>
         <Image
-          src="/robot.png"
+          src="/robot1.png"
           alt="robo-dude"
           width={400}
           height={400}
@@ -45,7 +45,7 @@ const Page = async() => {
               <InterviewCard
                 key={interview.id}
                 userId={user?.id}
-                interviewId={interview.id}
+                id={interview.id}
                 role={interview.role}
                 type={interview.type}
                 techstack={interview.techstack}
@@ -65,7 +65,7 @@ const Page = async() => {
               <InterviewCard
                 key={interview.id}
                 userId={user?.id}
-                interviewId={interview.id}
+                id={interview.id}
                 role={interview.role}
                 type={interview.type}
                 techstack={interview.techstack}

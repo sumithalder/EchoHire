@@ -11,7 +11,8 @@
   --color-destructive-200: #c44141;
 
   --color-primary-100: #dddfff;
-  --color-primary-200: #cac5fe;
+  --color-primary-200: #8B5CF6;
+  --color-primary-300: #7C3AED;
 
   --color-light-100: #d6e0ff;
   --color-light-400: #6870a6;
@@ -175,7 +176,7 @@
     @apply flex min-h-14 w-full items-center justify-center gap-1.5 rounded-md;
   }
   .btn-primary {
-    @apply w-fit !bg-primary-200 !text-dark-100 hover:!bg-primary-200/80 !rounded-full !font-bold px-5 cursor-pointer min-h-10;
+    @apply w-fit !bg-primary-200 !text-white hover:!bg-primary-200/80 !rounded-full !font-semibold px-5 cursor-pointer min-h-10;
   }
   .btn-secondary {
     @apply w-fit !bg-dark-200 !text-primary-200 hover:!bg-dark-200/80 !rounded-full !font-bold px-5 cursor-pointer min-h-10;
