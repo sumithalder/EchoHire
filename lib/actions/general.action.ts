@@ -1,4 +1,9 @@
+"use server";
+
+import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
+import { google } from "@ai-sdk/google";
+import { generateText } from "ai";
 
 export async function getInterviewByUserId( userId: string): Promise<Interview[] | null> {
     const interviews = await db
@@ -37,4 +42,82 @@ export async function getInterviewById( id: string): Promise<Interview | null> {
         .get();
 
     return interview.data() as Interview | null;
+}
+
+export async function createFeedback(params: CreateFeedbackParams) {
+  const { interviewId, userId, transcript, feedbackId } = params;
+
+  try {
+    const formattedTranscript = transcript
+      .map((sentence: { role: string; content: string }) =>
+        `- ${sentence.role}: ${sentence.content}\n`
+      )
+      .join("");
+
+    let feedbackText = "AI feedback could not be generated.";
+    // console.log("API KEY:", process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+    // Try generating AI feedback
+    try {
+      const { text } = await generateText({
+        model: google("gemini-2.0-flash-001"),
+        prompt: `
+        You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
+
+        Transcript:
+        ${formattedTranscript}
+
+        Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
+        - **Communication Skills**: Clarity, articulation, structured responses.
+        - **Technical Knowledge**: Understanding of key concepts for the role.
+        - **Problem-Solving**: Ability to analyze problems and propose solutions.
+        - **Cultural & Role Fit**: Alignment with company values and job role.
+        - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
+        `,
+        system:
+        "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
+    });
+
+      feedbackText = text;
+    } catch (aiError) {
+      console.error("Gemini failed:", aiError);
+    }
+
+    const feedback = {
+      interviewId: interviewId,
+      userID: userId, // matches your Firebase schema
+      transcript: formattedTranscript,
+      feedbackText: feedbackText,
+      createdAt: new Date().toISOString(),
+    };
+
+    const feedbackRef = feedbackId
+      ? db.collection("feedback").doc(feedbackId)
+      : db.collection("feedback").doc();
+
+    await feedbackRef.set(feedback);
+
+    console.log("✅ Feedback saved to Firebase");
+
+    return { success: true, feedbackId: feedbackRef.id };
+
+  } catch (error) {
+    console.error("❌ FIRESTORE ERROR:", error);
+    return { success: false };
+  }
+}
+
+export async function getFeedbackByInterviewId( params: GetFeedbackByInterviewIdParams): Promise<Feedback | null> {
+    const { interviewId, userId } = params;
+
+    const querySnapshot = await db
+    .collection("feedback")
+    .where("interviewId", "==", interviewId)
+    .where("userID", "==", userId)
+    .limit(1)
+    .get();
+
+    if (querySnapshot.empty) return null;
+
+    const feedbackDoc = querySnapshot.docs[0];
+    return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
 }
