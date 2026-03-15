@@ -3,7 +3,7 @@
 import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
 import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { generateObject, generateText } from "ai";
 
 export async function getInterviewByUserId( userId: string): Promise<Interview[] | null> {
     const interviews = await db

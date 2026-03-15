@@ -9,7 +9,7 @@ const monaSans = Mona_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PrepGenius AI",
+  title: "EchoHire AI",
   description: "AI-powered platform for preparing for mock interviews",
 };
 
