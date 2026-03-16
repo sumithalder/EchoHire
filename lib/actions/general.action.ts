@@ -3,7 +3,7 @@
 import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
 import { google } from "@ai-sdk/google";
-import { generateObject, generateText } from "ai";
+import { generateObject } from "ai";
 
 export async function getInterviewByUserId( userId: string): Promise<Interview[] | null> {
     const interviews = await db
@@ -44,65 +44,147 @@ export async function getInterviewById( id: string): Promise<Interview | null> {
     return interview.data() as Interview | null;
 }
 
+// export async function createFeedback(params: CreateFeedbackParams) {
+//   const { interviewId, userId, transcript, feedbackId } = params;
+
+//   try {
+//     const formattedTranscript = transcript
+//       .map((sentence: { role: string; content: string }) =>
+//         `- ${sentence.role}: ${sentence.content}\n`
+//       )
+//       .join("");
+
+//     const feedbackText = "AI feedback could not be generated.";
+//     // console.log("API KEY:", process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+//     // Try generating AI feedback
+//     try {
+//       const { object } = await generateObject({
+//         model: google("gemini-2.0-flash-001"),
+//         schema: feedbackSchema,
+//         temperature: 0.2,
+//         prompt: `
+//         You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
+
+//         Transcript:
+//         ${formattedTranscript}
+
+//         Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
+//         - **Communication Skills**: Clarity, articulation, structured responses.
+//         - **Technical Knowledge**: Understanding of key concepts for the role.
+//         - **Problem-Solving**: Ability to analyze problems and propose solutions.
+//         - **Cultural & Role Fit**: Alignment with company values and job role.
+//         - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
+
+//         Also include:
+//       - strengths
+//       - areasForImprovement
+//       - finalAssessment
+//         `,
+//         system:
+//         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
+//     });
+
+//     } catch (aiError) {
+//       console.error("Gemini failed:", aiError);
+//     }
+
+//     const feedback = {
+//       interviewId: interviewId,
+//       userID: userId, // matches your Firebase schema
+//       transcript: formattedTranscript,
+//       ...object,
+//       createdAt: new Date().toISOString(),
+//     };
+
+//     const feedbackRef = feedbackId
+//       ? db.collection("feedback").doc(feedbackId)
+//       : db.collection("feedback").doc();
+
+//     await feedbackRef.set(feedback);
+
+//     console.log("✅ Feedback saved to Firebase");
+
+//     return { success: true, feedbackId: feedbackRef.id };
+
+//   } catch (error) {
+//     console.error("❌ FIRESTORE ERROR:", error);
+//     return { success: false };
+//   }
+// }
+
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript, feedbackId } = params;
 
   try {
+    // Convert transcript to readable format
     const formattedTranscript = transcript
-      .map((sentence: { role: string; content: string }) =>
-        `- ${sentence.role}: ${sentence.content}\n`
+      .map(
+        (sentence: { role: string; content: string }) =>
+          `- ${sentence.role}: ${sentence.content}`
       )
-      .join("");
+      .join("\n");
 
-    let feedbackText = "AI feedback could not be generated.";
-    // console.log("API KEY:", process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-    // Try generating AI feedback
-    try {
-      const { text } = await generateText({
-        model: google("gemini-2.0-flash-001"),
-        prompt: `
-        You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
+    // Generate structured AI feedback
+    const { object: feedbackData } = await generateObject({
+      model: google("gemini-2.0-flash-001"),
+      schema: feedbackSchema,
+      temperature: 0.2,
+      prompt: `
+        You are an AI interviewer analyzing a mock interview.
+
+        Evaluate the candidate strictly based on this transcript.
 
         Transcript:
         ${formattedTranscript}
 
-        Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
-        - **Communication Skills**: Clarity, articulation, structured responses.
-        - **Technical Knowledge**: Understanding of key concepts for the role.
-        - **Problem-Solving**: Ability to analyze problems and propose solutions.
-        - **Cultural & Role Fit**: Alignment with company values and job role.
-        - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
+        Please score the candidate from 0 to 100 in the following areas. The categoryScores MUST include exactly these categories:
+        1. Communication Skills: Clarity, articulation, structured responses.
+        2. Technical Knowledge: Understanding of key concepts for the role.
+        3. Problem Solving: Ability to analyze problems and propose solutions.
+        4. Cultural Fit: Alignment with company values and job role.
+        5. Confidence and Clarity: Confidence in responses, engagement, and clarity.
+
+        Also include:
+      - strengths
+      - areasForImprovement
+      - finalAssessment
         `,
         system:
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
-      feedbackText = text;
-    } catch (aiError) {
-      console.error("Gemini failed:", aiError);
-    }
+    // Prepare Firestore document
 
-    const feedback = {
-      interviewId: interviewId,
-      userID: userId, // matches your Firebase schema
+    const feedbackDoc = {
+      interviewId,
+      userID: userId,
       transcript: formattedTranscript,
-      feedbackText: feedbackText,
+      ...feedbackData,
       createdAt: new Date().toISOString(),
     };
 
+    // Create reference
     const feedbackRef = feedbackId
       ? db.collection("feedback").doc(feedbackId)
       : db.collection("feedback").doc();
 
-    await feedbackRef.set(feedback);
+    // Save to Firebase
+    await feedbackRef.set(feedbackDoc);
 
-    console.log("✅ Feedback saved to Firebase");
+    console.log("✅ Feedback saved successfully");
 
-    return { success: true, feedbackId: feedbackRef.id };
+    return {
+      success: true,
+      feedbackId: feedbackRef.id,
+    };
 
   } catch (error) {
-    console.error("❌ FIRESTORE ERROR:", error);
-    return { success: false };
+    console.error("❌ Feedback generation failed:", error);
+
+    return {
+      success: false,
+      error: "Failed to generate feedback",
+    };
   }
 }
 
